@@ -1,0 +1,4 @@
+map [normal] <C-l> toggle_presentation
+set selection-clipboard clipboard
+set sandbox none
+
