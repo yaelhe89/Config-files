@@ -1,0 +1,20 @@
+# Programas dimeros ditrectory
+super + d
+	$TERMINAL -e ranger ~/Documentos/
+super + p
+	$TERMINAL -e ranger ~/Documentos/PROGRAMAS\ FINALES\ NUMERICOS
+super + m
+	$TERMINAL -e ranger /mnt/
+
+# Audiokeys
+XF86AudioMute
+	amixer sset Master toggle; refbar2
+XF86AudioRaiseVolume
+	amixer sset Master 2%+; refbar2
+XF86AudioLowerVolume
+	amixer sset Master 2%-; refbar2
+# Brightness
+XF86MonBrightnessUp
+	xbacklight -inc 2%
+XF86MonBrightnessDown
+	xbacklight -dec 2%
