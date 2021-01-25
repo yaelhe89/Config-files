@@ -1,0 +1,52 @@
+#!/usr/bin/env sh
+
+# This script will compile or run another finishing operation on a document. I
+# have this script run via vim.
+#
+# Compiles .tex. groff (.mom, .ms), .rmd, .md.  Opens .sent files as sent
+# presentations.  Runs scripts based on extention or shebang
+
+file=$(readlink -f "$1")
+dir=$(dirname "$file")
+base="${file%.*}"
+
+cd "$dir" || exit
+
+textype() { \
+	command="pdflatex"
+	( sed 5q "$file" | grep -i -q 'xelatex' ) && command="xelatex"
+	$command --output-directory="$dir" "$base" &&
+	grep -i addbibresource "$file" >/dev/null &&
+	biber --input-directory "$dir" "$base" &&
+	$command --output-directory="$dir" "$base" &&
+	$command --output-directory="$dir" "$base"
+	}
+
+bibtype() { \
+	command="bibtex"
+	$command  "$base".aux
+	}
+
+mathtype() { \
+	"$base".wls
+	}
+
+
+case "$file" in
+	*\.ms) refer -PS -e "$file" | groff -me -ms -kept -T pdf > "$base".pdf ;;
+	*\.mom) refer -PS -e "$file" | groff -mom -kept -T pdf > "$base".pdf ;;
+	*\.[0-9]) refer -PS -e "$file" | groff -mandoc -T pdf > "$base".pdf ;;
+	*\.rmd) echo "require(rmarkdown); render('$file')" | R -q --vanilla ;;
+	*\.tex) textype "$file" ;;
+	*\.bib) bibtype "$file" ;;
+	*\.md) pandoc "$file" --pdf-engine=xelatex -o "$base".pdf ;;
+	*config.h) sudo make install ;;
+        *\.c) cc "$file" -o "$base" && "$base" ;;
+	*\.f90) gfortran -fopenmp -ffree-form -o "$base".out -static-libgfortran "$file" -I/usr/local/lib /usr/local/lib/lapack95.a /usr/local/lib/liblapack.a /usr/local/lib/libblas.a ;;
+        *\.wls) mathtype "$file" ;;
+        #*\.f90) ifort -heap-arrays "$file" -o"$base" -lmkl_lapack95_lp64 -L/home/yael/intel/compilers_and_libraries_2019.5.281/linux/mkl/lib/intel64_lin -I/home/yael/intel/compilers_and_libraries_2019.5.281/linux/mkl/include -I /home/yael/intel/compilers_and_libraries_2019.5.281/linux/mkl/include/intel64/lp64 -lmkl_lapack95_lp64 -Wl,--start-group /home/yael/intel/compilers_and_libraries_2019.5.281/linux/mkl/lib/intel64_lin/libmkl_intel_lp64.a /home/yael/intel/compilers_and_libraries_2019.5.281/linux/mkl/lib/intel64_lin/libmkl_intel_thread.a /home/yael/intel/compilers_and_libraries_2019.5.281/linux/mkl/lib/intel64_lin/libmkl_core.a -Wl,--end-group -liomp5 -lpthread -lm ;;
+	*\.py) python "$file" ;;
+	*\.go) go run "$file" ;;
+	*\.sent) setsid sent "$file" 2>/dev/null & ;;
+	*) sed 1q "$file" | grep "^#!/" | sed "s/^#!//" | xargs -r -I % "$file" ;;
+esac
