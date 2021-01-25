@@ -1,0 +1,72 @@
+#!/usr/bin/env sh
+
+trap 'update' 5
+
+delim="|"
+status(){ \
+
+
+vol="$(pamixer --get-volume)"
+if [ $(pamixer --get-mute) = true ]; then
+	icon="🔇  "
+else 
+	icon="🔉  "
+fi
+#	amixer get Master | grep -o "[0-9]*%\|\[on\]\|\[off\]"
+echo "$icon$vol%"
+
+
+echo "$delim"
+
+
+# Show wifi 📶 and percent strength or 📡 if none.
+# Show 🌐 if connected to ethernet or ❎ if none.
+
+case "$(cat /sys/class/net/w*/operstate 2>/dev/null)" in
+	down) wifiicon="📡 " ;;
+	up) wifiicon="$(awk '/^\s*w/ { print "📶", int($3 * 100 / 70) "% " }' /proc/net/wireless)" ;;
+esac
+
+printf "%s%s\n" "$wifiicon" "$(sed "s/down/❎ /;s/up/🌐 /" /sys/class/net/e*/operstate 2>/dev/null)"
+
+
+echo "$delim"
+
+# Prints all batteries, their percentage remaining and an emoji corresponding
+# to charge status (🔌 for plugged up, 🔋 for discharging on battery, etc.).
+
+# acpi alternative
+# acpi | sed "s/Battery [0-9]: //;s/[Dd]ischarging, /🔋/;s/[Nn]ot charging, /🛑/;s/[Cc]harging, /🔌/;s/[Uu]nknown, /♻️/;s/[Ff]ull, /⚡/;s/ \(remaining\|until charged\)//"; exit
+
+# Loop through all attached batteries.
+for battery in /sys/class/power_supply/BAT?
+do
+	# Get its remaining capacity and charge status.
+	capacity=$(cat "$battery"/capacity) || break
+	status=$(sed "s/[Dd]ischarging/🔋/;s/[Nn]ot charging/🛑/;s/[Cc]harging/🔌/;s/[Uu]nknown/♻️/;s/[Ff]ull/⚡/" "$battery"/status)
+
+	# If it is discharging and 25% or less, we will add a ❗ as a warning.
+	 [ "$capacity" -le 30 ] && [ "$status" = "🔋" ] && warn="❗"&& notify-send -u critical "BATERIA BAJA"
+
+	printf "%s%s%s%% " "$status" "$warn" "$capacity"
+	unset warn
+done 
+
+echo "$delim"
+
+date '+%d (%a) %b %Y %I:%M%p'
+}
+
+update(){ \
+
+	xsetroot -name "$(status | tr '\n' ' ')" &
+}
+
+while :; do
+	update
+	sleep 1m &
+	wait
+done
+
+
+
